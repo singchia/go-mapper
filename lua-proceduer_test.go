@@ -53,6 +53,19 @@ func concreteEVAL(lua_scritp string, t *testing.T, args ...interface{}) {
 		retSlice, ok := ret.([]uint8)
 		if ok {
 			t.Log(string(retSlice))
+			return
+		}
+
+		retSliceSlice, ok := ret.([]interface{})
+		if ok {
+			list := make([]string, 0, len(retSliceSlice))
+			for _, v := range retSliceSlice {
+				vSlice, ok := v.([]uint8)
+				if ok {
+					list = append(list, string(vSlice))
+				}
+			}
+			t.Log(list)
 		} else {
 			t.Errorf("unexpected type, ret: %v", ret)
 			return
@@ -97,17 +110,17 @@ func Test_CreateM(t *testing.T) {
 
 //go test -v -test.run Test_CreatePer$
 func Test_CreatePer(t *testing.T) {
-	concreteEVAL(LuaCreatePer, t, "per2")
+	concreteEVAL(LuaCreatePer, t, "per1")
 }
 
 //go test -v -test.run TestCreateP$
 func Test_CreateP(t *testing.T) {
-	concreteEVAL(LuaCreateP, t, "p1")
+	concreteEVAL(LuaCreateP, t, "p2")
 }
 
 //test UPDATE
 func Test_AssignM2Map(t *testing.T) {
-	concreteEVAL(LuaAssignM2Map, t, "m1", "map2")
+	concreteEVAL(LuaAssignM2Map, t, "m1", "map1")
 }
 
 func Test_AssignMultiM2Map(t *testing.T) {
@@ -115,11 +128,11 @@ func Test_AssignMultiM2Map(t *testing.T) {
 }
 
 func Test_AssignP2Per(t *testing.T) {
-	concreteEVAL(LuaAssignP2Per, t, "p1", "per1")
+	concreteEVAL(LuaAssignP2Per, t, "p3", "per2")
 }
 
 func Test_AssignMultiP2Per(t *testing.T) {
-	concreteEVAL(LuaAssignMultiP2Per, t, "p1 p2", "per2")
+	concreteEVAL(LuaAssignMultiP2Per, t, "p1 p2 p3", "per1")
 }
 
 func Test_LuaAssignMap2Per(t *testing.T) {
@@ -164,4 +177,80 @@ func Test_LuaTakeMs(t *testing.T) {
 
 func Test_LuaBookFixedMs(t *testing.T) {
 	concreteEVAL(LuaBookFixedMs, t, "map2", "m1")
+}
+
+func Test_LuaDeleteP(t *testing.T) {
+	concreteEVAL(LuaDeleteP, t, "p1")
+}
+
+func Test_LuaDeletePs(t *testing.T) {
+	concreteEVAL(LuaDeletePs, t, "p1 p2 p3")
+}
+
+func Test_LuaDeleteM(t *testing.T) {
+	concreteEVAL(LuaDeleteM, t, "m1")
+}
+
+func Test_LuaDeleteMs(t *testing.T) {
+	concreteEVAL(LuaDeleteMs, t, "m1 m2")
+}
+
+func Test_LuaDeletePer(t *testing.T) {
+	concreteEVAL(LuaDeletePer, t, "per2")
+}
+
+func Test_LuaDeleteMap(t *testing.T) {
+	concreteEVAL(LuaDeleteMap, t, "map2")
+}
+
+func Test_DeletePAssignment(t *testing.T) {
+	concreteEVAL(LuaDeletePAssignment, t, "p1")
+}
+
+func Test_DeleteMultiPAssignment(t *testing.T) {
+	concreteEVAL(LuaDeleteMultiPAssignment, t, "p2 p3")
+}
+
+func Test_DeleteMAssignment(t *testing.T) {
+	concreteEVAL(LuaDeleteMAssignment, t, "m2")
+}
+
+func Test_DeleteMultiMAssignment(t *testing.T) {
+	concreteEVAL(LuaDeleteMultiMAssignment, t, "m1 m2")
+}
+
+func Test_DeleteMapAssignment(t *testing.T) {
+	concreteEVAL(LuaDeleteMapAssignment, t, "map1")
+}
+
+func Test_RetrieveAllPers(t *testing.T) {
+	concreteEVAL(LuaRetrieveAllPers, t)
+}
+
+func Test_RetrieveAllMaps(t *testing.T) {
+	concreteEVAL(LuaRetrieveAllMaps, t)
+}
+
+func Test_RetrievePs(t *testing.T) {
+	concreteEVAL(LuaRetrievePs, t, "per1")
+}
+
+func Test_RetrieveMs(t *testing.T) {
+	concreteEVAL(LuaRetrieveMs, t, "map1")
+}
+
+func Test_RetrieveAllPs(t *testing.T) {
+	concreteEVAL(LuaRetrieveAllPs, t)
+}
+
+func Test_RetrieveAllMs(t *testing.T) {
+	concreteEVAL(LuaRetrieveAllMs, t)
+}
+
+func Test_RetrieveMap(t *testing.T) {
+	concreteEVAL(LuaRetrieveMap, t, "m1")
+}
+
+func Test_RetrievePer(t *testing.T) {
+	concreteEVAL(LuaRetrievePer, t, "map2")
 }

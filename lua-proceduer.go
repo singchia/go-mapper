@@ -184,7 +184,7 @@ var LuaAssignM2Map = `
 	end
 
 	rst = redis.call("SADD", ARGV[1], KEYS[1])
-	if rst == 1 then 
+	if rst == 1 or rst == 0 then 
 		--[[ SADD succeed ]]--
 		rst = redis.call("SET", KEYS[1], ARGV[1])
 		if type(rst) == "table" and rst.ok == "OK" then 
@@ -227,7 +227,7 @@ var LuaAssignMultiM2Map = `
 			end
 
 			rst = redis.call("SADD", ARGV[1], word)
-			if rst == 1 then 
+			if rst == 1 or rst == 0 then 
 				rst = redis.call("SET", word, ARGV[1])
 				if type(rst) == "table" and rst.ok == "OK" then 
 					--[[ continue ]]--
@@ -272,7 +272,7 @@ var LuaAssignP2Per = `
 	end
 
 	rst = redis.call("SADD", ARGV[1], KEYS[1])
-	if rst == 1 then 
+	if rst == 1 or rst == 0 then 
 		--[[ SADD succeed ]]--
 		rst = redis.call("SET", KEYS[1], ARGV[1])
 		if type(rst) == "table" and rst.ok == "OK" then 
@@ -312,7 +312,7 @@ var LuaAssignMultiP2Per = `
 			end
 
 			rst = redis.call("SADD", ARGV[1], word)
-			if rst == 1 then 
+			if rst == 1 or rst == 0 then 
 				rst = redis.call("SET", word, ARGV[1])
 				if type(rst) == "table" and rst.ok == "OK" then 
 					--[[ continue ]]--
@@ -830,24 +830,24 @@ var LuaTakeMs = `
 var LuaDeleteP = `
 	local rst = redis.call("GET", KEYS[1])
 	local ret = 0
-	if rst ~= true then 
+	if rst == false or type(rst) ~= "string" then 
 		ret = 40032
 	else 
 		rst = redis.call("SREM", rst, KEYS[1])	
-		if rst ~= 1 then 
+		if rst ~= 1 and rst ~= 0 then 
 			ret = 40023
 		end
 	end
 
 	rst = redis.call("DEL", KEYS[1])
-	if rst ~= 1 then 
+	if rst ~= 1 and rst ~= 1 then 
 		ret = 40033 
 	end
 
 	rst = redis.call("SREM", "go-mapper:ps", KEYS[1])
-	if rst ~= 1 and ret ~= 0 then 
+	if rst ~= 1 and rst ~= 0 and rst ~= 0 then 
 		return ret
-	elseif rst ~= 1 then 
+	elseif rst ~= 1 and rst ~= 0 then 
 		return 40023
 	else
 		return ret 
@@ -859,25 +859,25 @@ var LuaDeleteP = `
 *	KEYS[1]: multi {p}s splited with " "
 **/
 var LuaDeletePs = `
+	local ret = 0
 	for word in KEYS[1]:gmatch("([^%s]+)") do 
 		local rst = redis.call("GET", word)
-		local ret = 0
-		if rst ~= true then 
+		if rst == false or type(rst) ~= "string" then 
 			ret = 40032
 		else 
 			rst = redis.call("SREM", rst, word)	
-			if rst ~= 1 then 
+			if rst ~= 1 and rst ~= 0 then 
 				ret = 40023
 			end
 		end
 
 		rst = redis.call("DEL", word)
-		if rst ~= 1 then 
+		if rst ~= 1 and rst ~= 0 then 
 			ret = 40033 
 		end
 
 		rst = redis.call("SREM", "go-mapper:ps", word)
-		if rst ~= 1 and ret == 0 then 
+		if rst ~= 1 and rst == 0 then 
 			ret = 40023
 		end
 	end
@@ -887,28 +887,29 @@ var LuaDeletePs = `
 /*
 *	delete per will: DEL p in per, SREM p in ps, DEL {per}, SREM {per} in pers
 *	KEYS[1]: {per}
+*	NOTE: this operation is quiet dangerous, it may cause a {map} assigned-less
 **/
 var LuaDeletePer = `
 	local rst = redis.call("SMEMBERS", KEYS[1])
 	local ret = 0
 	for k, v in pairs(rst) do
 		local rstDel = redis.call("DEL", v)
-		if rstDel ~= 1 then 
+		if rstDel ~= 1 and rstDel ~= 0  then 
 			ret = 40033
 		end
 		local rstSrem = redis.call("SREM", "go-mapper:ps", v)
-		if rstSrem ~= 1 then 
+		if rstSrem ~= 1 and rstSrem ~= 0 then 
 			ret = 40023
 		end
 	end
 
 	rst = redis.call("DEL", KEYS[1])
-	if rst ~= 1 then 
+	if rst ~= 1 and rst ~= 0  then 
 		ret = 40033
 	end
 
 	rst = redis.call("SREM", "go-mapper:pers", KEYS[1])
-	if rst ~= 1 then 
+	if rst ~= 1 and rst ~= 0 then 
 		ret = 40023
 	end
 	return ret
@@ -921,24 +922,24 @@ var LuaDeletePer = `
 var LuaDeleteM = `
 	local rst = redis.call("GET", KEYS[1])
 	local ret = 0
-	if rst ~= true then 
+	if rst == false or type(rst) ~= "string" then 
 		ret = 40032
 	else 
 		rst = redis.call("SREM", rst, KEYS[1])	
-		if rst ~= 1 then 
+		if rst ~= 1 and rst ~= 0 then 
 			ret = 40023
 		end
 	end
 
 	rst = redis.call("DEL", KEYS[1])
-		if rst ~= 1 then 
+		if rst ~= 1 and rst ~= 0 then 
 			ret = 40033 
 	end
 
 	rst = redis.call("SREM", "go-mapper:ms", KEYS[1])
-	if rst ~= 1 and ret ~= 0 then 
+	if rst ~= 1 and rst ~= 0 and ret ~= 0 then 
 		return ret
-	elseif rst ~= 1 then 
+	elseif rst ~= 1 and rst ~= 0 then 
 		return 40023
 	else
 		return ret 
@@ -950,25 +951,25 @@ var LuaDeleteM = `
 *	KEYS[1]: {m}s
 **/
 var LuaDeleteMs = `
+	local ret = 0
 	for word in KEYS[1]:gmatch("([^%s]+)") do 
 		local rst = redis.call("GET", word)
-		local ret = 0
-		if rst ~= true then 
+		if rst == false or type(rst) ~= "string" then 
 			ret = 40032
 		else 
 			rst = redis.call("SREM", rst, word)	
-			if rst ~= 1 then 
+			if rst ~= 1 and rst ~= 0 then 
 				ret = 40023
 			end
 		end
 
 		rst = redis.call("DEL", word)
-			if rst ~= 1 then 
+			if rst ~= 1 and rst ~= 0 then 
 				ret = 40033 
 		end
 
 		rst = redis.call("SREM", "go-mapper:ms", word)
-		if rst ~= 1 and ret == 0 then 
+		if rst ~= 1 and rst ~= 0 and ret == 0 then 
 			ret = 40023
 		end
 	end
@@ -984,27 +985,27 @@ var LuaDeleteMap = `
 	local ret = 0
 	for k, v in pairs(rst) do
 		local rstDel = redis.call("DEL", v)
-		if rstDel ~= 1 then 
+		if rstDel ~= 1 and rst ~= 0 then 
 			ret = 40033
 		end
 		local rstSrem = redis.call("SREM", "go-mapper:ms", v)
-		if rstSrem ~= 1 then 
+		if rstSrem ~= 1 and rstSrem ~= 0 then 
 			ret = 40023
 		end
 	end
 
 	rst = redis.call("DEL", KEYS[1])
-	if rst ~= 1 then 
+	if rst ~= 1 and rst ~= 0 then 
 		ret = 40033
 	end
 
 	rst = redis.call("SREM", "go-mapper:maps", KEYS[1])
-	if rst ~= 1 then 
+	if rst ~= 1 and rst ~= 0 then 
 		ret = 40023
 	end
 
 	rst = redis.call("DEL", KEYS[1]..":per")
-	if rst ~= 1 then 
+	if rst ~= 1 and rst ~= 0 then 
 		ret = 40023
 	end
 	return ret
@@ -1017,16 +1018,16 @@ var LuaDeleteMap = `
 var LuaDeletePAssignment = `
 	local rst = redis.call("GET", KEYS[1])
 	local ret = 0
-	if rst ~= true then 
+	if rst == false or type(rst) ~= "string" then 
 		ret = 40032
 	else 
-		rst = redis.call("DEL", KEYS[1])
-		if rst ~= 1 then 
+		local rstDel = redis.call("DEL", KEYS[1])
+		if rstDel ~= 1 and rstDel ~= 0 then 
 			ret = 40033
 		end
 
-		rst = redis.call("SREM", rst, KEYS[1])
-		if rst ~= 1 then 
+		local rstSrem = redis.call("SREM", rst, KEYS[1])
+		if rstSrem ~= 1 and rstSrem ~= 0 then 
 			ret = 40023
 		end
 	end
@@ -1038,19 +1039,19 @@ var LuaDeletePAssignment = `
 *	KEYS[1]: multi {p}s splited with " "
 **/
 var LuaDeleteMultiPAssignment = `
+	local ret = 0
 	for word in KEYS[1]:gmatch("([^%s]+)") do 
 		local rst = redis.call("GET", word)
-		local ret = 0
-		if rst ~= true then 
+		if rst == false or type(rst) ~= "string" then 
 			ret = 40032
 		else 
-			rst = redis.call("DEL", word)
-			if rst ~= 1 then 
+			local rstDel = redis.call("DEL", word)
+			if rstDel ~= 1 and rstDel ~= 0 then 
 				ret = 40033
 			end
 
 			rst = redis.call("SREM", rst, word)
-			if rst ~= 1 then 
+			if rst ~= 1 and rst ~= 0 then 
 				ret = 40023
 			end
 		end
@@ -1065,16 +1066,16 @@ var LuaDeleteMultiPAssignment = `
 var LuaDeleteMAssignment = `
 	local rst = redis.call("GET", KEYS[1])
 	local ret = 0
-	if rst ~= true then 
+	if rst == false or type(rst) ~= "string" then 
 		ret = 40032
 	else 
-		rst = redis.call("DEL", KEYS[1])
-		if rst ~= 1 then 
+		local rstDel = redis.call("DEL", KEYS[1])
+		if rstDel ~= 1 and rstDel ~= 0 then 
 			ret = 40033
 		end
 
 		rst = redis.call("SREM", rst, KEYS[1])
-		if rst ~= 1 then 
+		if rst ~= 1 and rst ~= 0 then 
 			ret = 40023
 		end
 	end
@@ -1086,19 +1087,19 @@ var LuaDeleteMAssignment = `
 *	KEYS[1]: multi {m}s splited with " "
 **/
 var LuaDeleteMultiMAssignment = `
+	local ret = 0
 	for word in KEYS[1]:gmatch("([^%s]+)") do 
 		local rst = redis.call("GET", word)
-		local ret = 0
-		if rst ~= true then 
+		if rst == false or type(rst) ~= "string" then 
 			ret = 40032
 		else 
-			rst = redis.call("DEL", word)
-			if rst ~= 1 then 
+			local rstDel = redis.call("DEL", word)
+			if rstDel ~= 1 and rstDel ~= 0 then 
 				ret = 40033
 			end
 
 			rst = redis.call("SREM", rst, word)
-			if rst ~= 1 then 
+			if rst ~= 1 and rst ~= 0 then 
 				ret = 40023
 			end
 		end
@@ -1111,8 +1112,8 @@ var LuaDeleteMultiMAssignment = `
 *	KEYS[1]: {map}
 **/
 var LuaDeleteMapAssignment = `
-	local rst = redis.call("DEL", KEYS[1])
-	if rst ~= 1 then 
+	local rst = redis.call("DEL", KEYS[1]..":per")
+	if rst ~= 1 and rst ~= 0 then 
 		return 40033
 	end
 	return 0
@@ -1164,7 +1165,7 @@ var LuaRetrieveMs = `
 *	NO KEYS & ARGVS
 **/
 var LuaRetrieveAllMs = `
-	return redis.call("SMEMBERS", "go-mapper:ps")
+	return redis.call("SMEMBERS", "go-mapper:ms")
 `
 
 /*
@@ -1172,7 +1173,7 @@ var LuaRetrieveAllMs = `
 *	NO KEYS & ARGVS
 **/
 var LuaRetrieveAllPs = `
-	return redis.call("SMEMBERS", "go-mapper:ms")
+	return redis.call("SMEMBERS", "go-mapper:ps")
 `
 
 /*
@@ -1182,7 +1183,7 @@ var LuaRetrieveAllPs = `
 var LuaRetrieveMap = `
 	local rst = redis.call("GET", KEYS[1])
 	if rst == false or type(rst) ~= "string" then 
-		return 40032
+		return 40026
 	end
 	return rst
 `
@@ -1194,7 +1195,7 @@ var LuaRetrieveMap = `
 var LuaRetrievePer = `
 	local rst = redis.call("GET", KEYS[1]..":per")
 	if rst == false or type(rst) ~= "string" then 
-		return 40032 
+		return 40026
 	end
 	return rst
 `
@@ -1272,3 +1273,8 @@ var LuaRetrieveTopo = `
 
 	return cjson.encode(topo)
 `
+
+/*
+*	retrieve a random {p} by {m}, {m}=>{map}=>{per}=>{p}, the {p} will be took in random
+*	KEYS[1]: {m}
+**/
