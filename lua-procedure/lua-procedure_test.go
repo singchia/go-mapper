@@ -1,4 +1,4 @@
-package proceduer
+package procedure
 
 import (
 	"testing"
@@ -136,7 +136,7 @@ func Test_AssignMultiP2Per(t *testing.T) {
 }
 
 func Test_LuaAssignMap2Per(t *testing.T) {
-	concreteEVAL(LuaAssignMap2Per, t, "map2", "per1")
+	concreteEVAL(LuaAssignMap2Per, t, "map1", "per1")
 }
 
 func Test_LuaMovePs(t *testing.T) {
@@ -253,4 +253,8 @@ func Test_RetrieveMap(t *testing.T) {
 
 func Test_RetrievePer(t *testing.T) {
 	concreteEVAL(LuaRetrievePer, t, "map2")
+}
+
+func Test_RetrievePsByM(t *testing.T) {
+	concreteEVAL(LuaRetrievePsByM, t, "m1", 2)
 }

@@ -1,4 +1,4 @@
-package proceduer
+package procedure
 
 /*
 * 		@author zhzhai
@@ -815,7 +815,6 @@ var LuaTakeMs = `
 	return index
 `
 
-//TODO
 //DELETE
 /*
 *	delete operation to delete enties or assignment
@@ -1276,5 +1275,20 @@ var LuaRetrieveTopo = `
 
 /*
 *	retrieve a random {p} by {m}, {m}=>{map}=>{per}=>{p}, the {p} will be took in random
-*	KEYS[1]: {m}
+*	KEYS[1]: {m}, ARGV[1]: count of {p} and should be verified by application
 **/
+var LuaRetrievePsByM = `
+	local rst = redis.call("GET", KEYS[1])
+	if rst == false or type(rst) ~= "string" then 
+		return 40026
+	end
+	
+	rst = redis.call("GET", rst..":per")
+	if rst == false or type(rst) ~= "string" then 
+		return 40026
+	end
+
+	local count = tonumber(ARGV[1])
+	rst = redis.call("SRANDMEMBER", rst, count)	
+	return rst
+`
