@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"./lua-procedure"
 	"./redis"
@@ -16,11 +17,14 @@ type Retriever interface {
 	//retrieve all entities
 	Retrieve() (int, []byte)
 
+	//only M need to implement
+	RetrieveP(e string) (int, []byte)
+
 	//retrieve included entities
 	RetrieveEntities(e string) (int, []byte)
 
 	//retrieve corresponding entity
-	RetrieveCoEntity(e1 string, e2 string) (int, []byte)
+	RetrieveCoEntity(e string) (int, []byte)
 }
 
 type Deleter interface {
@@ -34,13 +38,12 @@ type Updater interface {
 	Assign(e1, e2 string) (int, []byte)
 	MultiAssign(e1, e2 string) (int, []byte)
 
-	MoveEntities(e1 string, count int, e2 string) (int, []byte)
+	MoveEntities(e1 string, count string, e2 string) (int, []byte)
 	MoveFixedEntities(e1, elements, e2 string) (int, []byte)
 
-	BookEntities(e string, count int) (int, []byte)
-	TakeEntities(e string, count int) (int, []byte)
-	BookFixedEntities(e, elements string) (int []byte)
-	TakeFixedEntities(e, elements string) (int []byte)
+	BookEntities(e string, count string) (int, []byte)
+	TakeEntities(e1 string, e2 string) (int, []byte)
+	BookFixedEntities(e, elements string) (int, []byte)
 }
 
 type CURD interface {
@@ -59,6 +62,9 @@ func (t *BaseEntity) Create(e string) (int, []byte) {
 func (t *BaseEntity) Retrieve() (int, []byte) {
 	return http.StatusNotFound, nil
 }
+func (t *BaseEntity) RetrieveP() (int, []byte) {
+	return http.StatusNotFound, nil
+}
 func (t *BaseEntity) RetrieveEntities(e string) (int, []byte) {
 	return http.StatusNotFound, nil
 }
@@ -73,22 +79,19 @@ func (t *BaseEntity) MultiAssign(e1, e2 string) (int, []byte) {
 	return http.StatusNotFound, nil
 }
 
-func (t *BaseEntity) MoveEntities(e1 string, count int, e2 string) {
+func (t *BaseEntity) MoveEntities(e1 string, count string, e2 string) (int, []byte) {
 	return http.StatusNotFound, nil
 }
-func (t *BaseEntity) MoveFixedEntities(e1 string, elements string, e2 string) {
+func (t *BaseEntity) MoveFixedEntities(e1 string, elements string, e2 string) (int, []byte) {
 	return http.StatusNotFound, nil
 }
-func (t *BaseEntity) BookEntities(e string, count int) (int, []byte) {
+func (t *BaseEntity) BookEntities(e string, count string) (int, []byte) {
 	return http.StatusNotFound, nil
 }
-func (t *BaseEntity) TakeEntities(e string, count int) (int, []byte) {
+func (t *BaseEntity) TakeEntities(e1 string, e2 string) (int, []byte) {
 	return http.StatusNotFound, nil
 }
 func (t *BaseEntity) BookFixedEntities(e string, elements string) (int, []byte) {
-	return http.StatusNotFound, nil
-}
-func (t *BaseEntity) TakeFixedEntities(e string, elements string) (int, []byte) {
 	return http.StatusNotFound, nil
 }
 
@@ -96,7 +99,7 @@ func (t *BaseEntity) Delete(e string) (int, []byte) {
 	return http.StatusNotFound, nil
 }
 func (t *BaseEntity) DeAssign(e string) (int, []byte) {
-	return http.StatusNotfound, nil
+	return http.StatusNotFound, nil
 }
 func (t *BaseEntity) MultiDeAssign(e string) (int, []byte) {
 	return http.StatusNotFound, nil
@@ -107,7 +110,7 @@ type Topology struct {
 }
 
 func (t *Topology) Retrieve() (int, []byte) {
-	ret, err := redis.GetRedisInstance().Do("EVAL", procedure.LuaRetrieveTopo, 0)
+	ret, err := redisCli.GetRedisInstance().Do("EVAL", procedure.LuaRetrieveTopo, 0)
 	if err != nil {
 		return http.StatusInternalServerError, nil
 	}
@@ -123,7 +126,7 @@ type M struct {
 }
 
 func (m *M) Retrieve() (int, []byte) {
-	ret, err := redis.GetRedisInstance().Do("EVAL", procedure.LuaRetrieveAllMs)
+	ret, err := redisCli.GetRedisInstance().Do("EVAL", procedure.LuaRetrieveAllMs)
 	if err != nil {
 		return http.StatusInternalServerError, nil
 	}
@@ -136,16 +139,21 @@ func (m *M) Retrieve() (int, []byte) {
 				list = append(list, string(vSlice))
 			}
 		}
-		return http.StatusOK, json.Marshal(struct {
+		data, _ := json.Marshal(struct {
 			Ms []string `json:"ms"`
 		}{Ms: list})
+
+		return http.StatusOK, data
 	} else {
 		return http.StatusInternalServerError, nil
 	}
 }
 
 func (m *M) Create(e string) (int, []byte) {
-	ret, err := redis.GetRedisInstance().Do("EVAL", procedure.LuaCreateM, 1, e)
+	if e == "" {
+		return http.StatusBadRequest, nil
+	}
+	ret, err := redisCli.GetRedisInstance().Do("EVAL", procedure.LuaCreateM, 1, e)
 	if err != nil {
 		return http.StatusInternalServerError, nil
 	}
@@ -168,7 +176,11 @@ func (m *M) Create(e string) (int, []byte) {
 }
 
 func (m *M) Delete(e string) (int, []byte) {
-	ret, err := redis.GetRedisInstance().Do("EVAL", procedure.LuaDeleteM, 1, e)
+	if e == "" {
+		return http.StatusBadRequest, nil
+	}
+
+	ret, err := redisCli.GetRedisInstance().Do("EVAL", procedure.LuaDeleteM, 1, e)
 	if err != nil {
 		return http.StatusInternalServerError, nil
 	}
@@ -188,19 +200,45 @@ func (m *M) Delete(e string) (int, []byte) {
 }
 
 func (m *M) RetrieveCoEntity(e string) (int, []byte) {
-	ret, err := redis.GetRedisInstance().Do("EVAL", procedure.LuaRetrieveMap, 1, e)
+	if e == "" {
+		return http.StatusBadRequest, nil
+	}
+
+	ret, err := redisCli.GetRedisInstance().Do("EVAL", procedure.LuaRetrieveMap, 1, e)
 	if err != nil {
 		return http.StatusInternalServerError, nil
 	}
 
 	retStr, ok := ret.([]uint8)
 	if ok {
-		return http.StatusOK, json.Marshal(struct {
+		data, _ := json.Marshal(struct {
 			Map string `json:"map"`
 		}{Map: string(retStr)})
+
+		return http.StatusOK, data
 	}
 
-	retInt64, ok := ret.(int64)
+	_, ok = ret.(int64)
+	if ok {
+		return http.StatusNoContent, nil
+	}
+	return http.StatusInternalServerError, nil
+}
+
+func (m *M) RetrieveP() (int, []byte) {
+	ret, err := redisCli.GetRedisInstance().Do("EVAL", procedure.LuaRetrievePsByM)
+	if err != nil {
+		return http.StatusInternalServerError, nil
+	}
+	retSlice, ok := ret.([]uint8)
+	if ok {
+		data, _ := json.Marshal(struct {
+			P string `json:"p"`
+		}{P: string(retSlice)})
+
+		return http.StatusOK, data
+	}
+	_, ok = ret.(int64)
 	if ok {
 		return http.StatusNoContent, nil
 	}
@@ -208,7 +246,11 @@ func (m *M) RetrieveCoEntity(e string) (int, []byte) {
 }
 
 func (m *M) Assign(e1, e2 string) (int, []byte) {
-	ret, err := redis.GetRedisInstance().Do("EVAL", procedure.LuaAssignM2Map, 1, e1, e2)
+	if e1 == "" || e2 == "" {
+		return http.StatusBadRequest, nil
+	}
+
+	ret, err := redisCli.GetRedisInstance().Do("EVAL", procedure.LuaAssignM2Map, 1, e1, e2)
 	if err != nil {
 		return http.StatusInternalServerError, nil
 	}
@@ -228,7 +270,11 @@ func (m *M) Assign(e1, e2 string) (int, []byte) {
 }
 
 func (m *M) MultiAssign(e1, e2 string) (int, []byte) {
-	ret, err := redis.GetRedisInstance().Do("EVAL", procedure.LuaAssignMultiM2Map, 1, e1, e2)
+	if e1 == "" || e2 == "" {
+		return http.StatusBadRequest, nil
+	}
+
+	ret, err := redisCli.GetRedisInstance().Do("EVAL", procedure.LuaAssignMultiM2Map, 1, e1, e2)
 	if err != nil {
 		return http.StatusInternalServerError, nil
 	}
@@ -248,7 +294,11 @@ func (m *M) MultiAssign(e1, e2 string) (int, []byte) {
 }
 
 func (m *M) DeAssign(e string) (int, []byte) {
-	ret, err := redis.GetRedisInstance().Do("EVAL", procedure.LuaDeleteMAssignment, 1, e)
+	if e == "" {
+		return http.StatusBadRequest, nil
+	}
+
+	ret, err := redisCli.GetRedisInstance().Do("EVAL", procedure.LuaDeleteMAssignment, 1, e)
 	if err != nil {
 		return http.StatusInternalServerError, nil
 	}
@@ -267,7 +317,11 @@ func (m *M) DeAssign(e string) (int, []byte) {
 }
 
 func (m *M) MultiDeAssign(e string) (int, []byte) {
-	ret, err := redis.GetRedisInstance().Do("EVAL", procedure.LuaDeleteMultiMAssignment, 1, e)
+	if e == "" {
+		return http.StatusBadRequest, nil
+	}
+
+	ret, err := redisCli.GetRedisInstance().Do("EVAL", procedure.LuaDeleteMultiMAssignment, 1, e)
 	if err != nil {
 		return http.StatusInternalServerError, nil
 	}
@@ -290,7 +344,7 @@ type Map struct {
 }
 
 func (m *Map) Retrieve() (int, []byte) {
-	ret, err := redis.GetRedisInstance().Do("EVAL", procedure.LuaRetrieveAllMaps, 0)
+	ret, err := redisCli.GetRedisInstance().Do("EVAL", procedure.LuaRetrieveAllMaps, 0)
 	if err != nil {
 		return http.StatusInternalServerError, nil
 	}
@@ -303,16 +357,22 @@ func (m *Map) Retrieve() (int, []byte) {
 				list = append(list, string(vSlice))
 			}
 		}
-		return http.StatusOK, json.Marshal(struct {
+		data, _ := json.Marshal(struct {
 			Maps []string `json:"maps"`
 		}{Maps: list})
+
+		return http.StatusOK, data
 	} else {
 		return http.StatusInternalServerError, nil
 	}
 }
 
 func (m *Map) RetrieveEntities(e string) (int, []byte) {
-	ret, err := redis.GetRedisInstance().Do("EVAL", procedure.LuaRetrieveMs, 1, e)
+	if e == "" {
+		return http.StatusBadRequest, nil
+	}
+
+	ret, err := redisCli.GetRedisInstance().Do("EVAL", procedure.LuaRetrieveMs, 1, e)
 	if err != nil {
 		return http.StatusInternalServerError, nil
 	}
@@ -325,28 +385,36 @@ func (m *Map) RetrieveEntities(e string) (int, []byte) {
 				list = append(list, string(vSlice))
 			}
 		}
-		return http.StatusOK, json.Marshal(struct {
+		data, _ := json.Marshal(struct {
 			Ms []string `json:"ms"`
 		}{Ms: list})
+
+		return http.StatusOK, data
 	} else {
 		return http.StatusInternalServerError, nil
 	}
 }
 
 func (m *Map) RetrieveCoEntity(e string) (int, []byte) {
-	ret, err := redis.GetRedisInstance().Do("EVAL", procedure.LuaRetrievePer, 1, e)
+	if e == "" {
+		return http.StatusBadRequest, nil
+	}
+
+	ret, err := redisCli.GetRedisInstance().Do("EVAL", procedure.LuaRetrievePer, 1, e)
 	if err != nil {
 		return http.StatusInternalServerError, nil
 	}
 
 	retStr, ok := ret.([]uint8)
 	if ok {
-		return http.StatusOK, json.Marshal(struct {
+		data, _ := json.Marshal(struct {
 			Per string `json:"per"`
 		}{Per: string(retStr)})
+
+		return http.StatusOK, data
 	}
 
-	retInt64, ok := ret.(int64)
+	_, ok = ret.(int64)
 	if ok {
 		return http.StatusNoContent, nil
 	}
@@ -354,7 +422,11 @@ func (m *Map) RetrieveCoEntity(e string) (int, []byte) {
 }
 
 func (m *Map) Create(e string) (int, []byte) {
-	ret, err := redis.GetRedisInstance().Do("EVAL", procedure.LuaCreateMap, 1, e)
+	if e == "" {
+		return http.StatusBadRequest, nil
+	}
+
+	ret, err := redisCli.GetRedisInstance().Do("EVAL", procedure.LuaCreateMap, 1, e)
 	if err != nil {
 		return http.StatusInternalServerError, nil
 	}
@@ -376,7 +448,11 @@ func (m *Map) Create(e string) (int, []byte) {
 }
 
 func (m *Map) Delete(e string) (int, []byte) {
-	ret, err := redis.GetRedisInstance().Do("EVAL", procedure.LuaDeleteMap, 1, e)
+	if e == "" {
+		return http.StatusBadRequest, nil
+	}
+
+	ret, err := redisCli.GetRedisInstance().Do("EVAL", procedure.LuaDeleteMap, 1, e)
 	if err != nil {
 		return http.StatusInternalServerError, nil
 	}
@@ -396,7 +472,11 @@ func (m *Map) Delete(e string) (int, []byte) {
 }
 
 func (m *Map) Assign(e1, e2 string) (int, []byte) {
-	ret, err := redis.GetRedisInstance().Do("EVAL", procedure.LuaAssignMap2Per, 1, e1, e2)
+	if e1 == "" || e2 == "" {
+		return http.StatusBadRequest, nil
+	}
+
+	ret, err := redisCli.GetRedisInstance().Do("EVAL", procedure.LuaAssignMap2Per, 1, e1, e2)
 	if err != nil {
 		return http.StatusInternalServerError, nil
 	}
@@ -416,7 +496,11 @@ func (m *Map) Assign(e1, e2 string) (int, []byte) {
 }
 
 func (m *Map) DeAssign(e string) (int, []byte) {
-	ret, err := redis.GetRedisInstance().Do("EVAL", procedure.LuaDeleteMapAssignment, 1, e)
+	if e == "" {
+		return http.StatusBadRequest, nil
+	}
+
+	ret, err := redisCli.GetRedisInstance().Do("EVAL", procedure.LuaDeleteMapAssignment, 1, e)
 	if err != nil {
 		return http.StatusInternalServerError, nil
 	}
@@ -432,8 +516,15 @@ func (m *Map) DeAssign(e string) (int, []byte) {
 	return http.StatusInternalServerError, nil
 }
 
-func (m *Map) MoveEntities(e1 string, count int, e2 string) (int, []byte) {
-	ret, err := redis.GetRedisInstance().Do("EVAL", procedure.LuaMoveMs, 1, e1, count, e2)
+func (m *Map) MoveEntities(e1 string, countStr string, e2 string) (int, []byte) {
+	count, err := strconv.Atoi(countStr)
+	if err != nil || count <= 0 {
+		return http.StatusBadRequest, nil
+	}
+	if e1 == "" || e2 == "" {
+		return http.StatusBadRequest, nil
+	}
+	ret, err := redisCli.GetRedisInstance().Do("EVAL", procedure.LuaMoveMs, 1, e1, countStr, e2)
 	if err != nil {
 		return http.StatusInternalServerError, nil
 	}
@@ -443,15 +534,20 @@ func (m *Map) MoveEntities(e1 string, count int, e2 string) (int, []byte) {
 		if retInt64 == EntityNotExists {
 			return http.StatusNoContent, nil
 		}
-		return http.StatusOK, json.Marshal(struct {
+		data, _ := json.Marshal(struct {
 			Count int64 `json:"count"`
 		}{Count: retInt64})
+
+		return http.StatusOK, data
 	}
 	return http.StatusInternalServerError, nil
 }
 
-func (m *Map) MoveFixedEntities(e1 string, multiE int, e2 string) (int, []byte) {
-	ret, err := redis.GetRedisInstance().Do("EVAL", procedure.LuaMoveFixedMs, 1, e1, multiE, e2)
+func (m *Map) MoveFixedEntities(e1 string, multiE string, e2 string) (int, []byte) {
+	if e1 == "" || e2 == "" || multiE == "" {
+		return http.StatusBadRequest, nil
+	}
+	ret, err := redisCli.GetRedisInstance().Do("EVAL", procedure.LuaMoveFixedMs, 1, e1, multiE, e2)
 	if err != nil {
 		return http.StatusInternalServerError, nil
 	}
@@ -461,15 +557,21 @@ func (m *Map) MoveFixedEntities(e1 string, multiE int, e2 string) (int, []byte) 
 		if retInt64 == EntityNotExists {
 			return http.StatusNoContent, nil
 		}
-		return http.StatusOK, json.Marshal(struct {
+		data, _ := json.Marshal(struct {
 			Count int64 `json:"count"`
 		}{Count: retInt64})
+
+		return http.StatusOK, data
 	}
 	return http.StatusInternalServerError, nil
 }
 
-func (m *Map) BookEntities(e string, count int) (int, []byte) {
-	ret, err := redis.GetRedisInstance().Do("EVAL", procedure.LuaBookMs, 1, e, count)
+func (m *Map) BookEntities(e string, countStr string) (int, []byte) {
+	count, err := strconv.Atoi(countStr)
+	if err != nil || count <= 0 || e == "" {
+		return http.StatusBadRequest, nil
+	}
+	ret, err := redisCli.GetRedisInstance().Do("EVAL", procedure.LuaBookMs, 1, e, countStr)
 	if err != nil {
 		return http.StatusInternalServerError, nil
 	}
@@ -484,16 +586,22 @@ func (m *Map) BookEntities(e string, count int) (int, []byte) {
 		case SADDOperError:
 			return http.StatusInternalServerError, nil
 		default:
-			return http.StatusOK, json.Marshal(struct {
+			data, _ := json.Marshal(struct {
 				Count int64 `json:"count"`
 			}{Count: retInt64})
+
+			return http.StatusOK, data
 		}
 	}
 	return http.StatusInternalServerError, nil
 }
 
 func (m *Map) BookFixedEntities(e string, multiE string) (int, []byte) {
-	ret, err := redis.GetRedisInstance().Do("EVAL", procedure.LuaBookMs, 1, e, multiE)
+	if e == "" || multiE == "" {
+		return http.StatusBadRequest, nil
+	}
+
+	ret, err := redisCli.GetRedisInstance().Do("EVAL", procedure.LuaBookMs, 1, e, multiE)
 	if err != nil {
 		return http.StatusInternalServerError, nil
 	}
@@ -508,16 +616,22 @@ func (m *Map) BookFixedEntities(e string, multiE string) (int, []byte) {
 		case SADDOperError:
 			return http.StatusInternalServerError, nil
 		default:
-			return http.StatusOK, json.Marshal(struct {
+			data, _ := json.Marshal(struct {
 				Count int64 `json:"count"`
 			}{Count: retInt64})
+
+			return http.StatusOK, data
 		}
 	}
 	return http.StatusInternalServerError, nil
 }
 
 func (m *Map) TakeEntities(e1 string, e2 string) (int, []byte) {
-	ret, err := redis.GetRedisInstance().Do("EVAL", procedure.LuaTakeMs, 1, e1, e2)
+	if e1 == "" || e2 == "" {
+		return http.StatusBadRequest, nil
+	}
+
+	ret, err := redisCli.GetRedisInstance().Do("EVAL", procedure.LuaTakeMs, 1, e1, e2)
 	if err != nil {
 		return http.StatusInternalServerError, nil
 	}
@@ -529,9 +643,11 @@ func (m *Map) TakeEntities(e1 string, e2 string) (int, []byte) {
 		case SADDOperError:
 			return http.StatusInternalServerError, nil
 		default:
-			return http.StatusOK, json.Marshal(struct {
+			data, _ := json.Marshal(struct {
 				Count int64 `json:"count"`
 			}{Count: retInt64})
+
+			return http.StatusOK, data
 		}
 	}
 	return http.StatusInternalServerError, nil
@@ -541,8 +657,8 @@ type P struct {
 	BaseEntity
 }
 
-func (p *P) Retrieve() {
-	ret, err := redis.GetRedisInstance().Do("EVAL", procedure.LuaRetrieveAllPs, 0)
+func (p *P) Retrieve() (int, []byte) {
+	ret, err := redisCli.GetRedisInstance().Do("EVAL", procedure.LuaRetrieveAllPs, 0)
 	if err != nil {
 		return http.StatusInternalServerError, nil
 	}
@@ -555,28 +671,36 @@ func (p *P) Retrieve() {
 				list = append(list, string(vSlice))
 			}
 		}
-		return http.StatusOK, json.Marshal(struct {
+		data, _ := json.Marshal(struct {
 			Ps []string `json:"ps"`
 		}{Ps: list})
+
+		return http.StatusOK, data
 	} else {
 		return http.StatusInternalServerError, nil
 	}
 }
 
-func (p *P) RetrieveCoEntity(e string) {
-	ret, err := redis.GetRedisInstance().Do("EVAL", procedure.LuaRetrievePer, 1, e)
+func (p *P) RetrieveCoEntity(e string) (int, []byte) {
+	if e == "" {
+		return http.StatusBadRequest, nil
+	}
+
+	ret, err := redisCli.GetRedisInstance().Do("EVAL", procedure.LuaRetrievePer, 1, e)
 	if err != nil {
 		return http.StatusInternalServerError, nil
 	}
 
 	retStr, ok := ret.([]uint8)
 	if ok {
-		return http.StatusOK, json.Marshal(struct {
+		data, _ := json.Marshal(struct {
 			Per string `json:"per"`
 		}{Per: string(retStr)})
+
+		return http.StatusOK, data
 	}
 
-	retInt64, ok := ret.(int64)
+	_, ok = ret.(int64)
 	if ok {
 		return http.StatusNoContent, nil
 	}
@@ -585,7 +709,11 @@ func (p *P) RetrieveCoEntity(e string) {
 }
 
 func (p *P) Create(e string) (int, []byte) {
-	ret, err := redis.GetRedisInstance().Do("EVAL", procedure.LuaCreateP, 1, e)
+	if e == "" {
+		return http.StatusBadRequest, nil
+	}
+
+	ret, err := redisCli.GetRedisInstance().Do("EVAL", procedure.LuaCreateP, 1, e)
 	if err != nil {
 		return http.StatusInternalServerError, nil
 	}
@@ -607,7 +735,11 @@ func (p *P) Create(e string) (int, []byte) {
 }
 
 func (p *P) Delete(e string) (int, []byte) {
-	ret, err := redis.GetRedisInstance().Do("EVAL", procedure.LuaDeleteP, 1, e)
+	if e == "" {
+		return http.StatusBadRequest, nil
+	}
+
+	ret, err := redisCli.GetRedisInstance().Do("EVAL", procedure.LuaDeleteP, 1, e)
 	if err != nil {
 		return http.StatusInternalServerError, nil
 	}
@@ -627,7 +759,11 @@ func (p *P) Delete(e string) (int, []byte) {
 }
 
 func (p *P) Assign(e1, e2 string) (int, []byte) {
-	ret, err := redis.GetRedisInstance().Do("EVAL", procedure.LuaAssignP2Per, 1, e1, e2)
+	if e1 == "" || e2 == "" {
+		return http.StatusBadRequest, nil
+	}
+
+	ret, err := redisCli.GetRedisInstance().Do("EVAL", procedure.LuaAssignP2Per, 1, e1, e2)
 	if err != nil {
 		return http.StatusInternalServerError, nil
 	}
@@ -647,7 +783,11 @@ func (p *P) Assign(e1, e2 string) (int, []byte) {
 }
 
 func (p *P) MultiAssign(e1, e2 string) (int, []byte) {
-	ret, err := redis.GetRedisInstance().Do("EVAL", procedure.LuaAssignMultiP2Per, 1, e1, e2)
+	if e1 == "" || e2 == "" {
+		return http.StatusBadRequest, nil
+	}
+
+	ret, err := redisCli.GetRedisInstance().Do("EVAL", procedure.LuaAssignMultiP2Per, 1, e1, e2)
 	if err != nil {
 		return http.StatusInternalServerError, nil
 	}
@@ -667,7 +807,11 @@ func (p *P) MultiAssign(e1, e2 string) (int, []byte) {
 }
 
 func (p *P) DeAssign(e string) (int, []byte) {
-	ret, err := redis.GetRedisInstance().Do("EVAL", procedure.LuaDeletePAssignment, 1, e)
+	if e == "" {
+		return http.StatusBadRequest, nil
+	}
+
+	ret, err := redisCli.GetRedisInstance().Do("EVAL", procedure.LuaDeletePAssignment, 1, e)
 	if err != nil {
 		return http.StatusInternalServerError, nil
 	}
@@ -686,7 +830,11 @@ func (p *P) DeAssign(e string) (int, []byte) {
 }
 
 func (p *P) MultiDeAssign(e string) (int, []byte) {
-	ret, err := redis.GetRedisInstance().Do("EVAL", procedure.LuaDeleteMultiPAssignment, 1, e)
+	if e == "" {
+		return http.StatusBadRequest, nil
+	}
+
+	ret, err := redisCli.GetRedisInstance().Do("EVAL", procedure.LuaDeleteMultiPAssignment, 1, e)
 	if err != nil {
 		return http.StatusInternalServerError, nil
 	}
@@ -708,8 +856,8 @@ type Per struct {
 	BaseEntity
 }
 
-func (p *Per) Retrieve() {
-	ret, err := redis.GetRedisInstance().Do("EVAL", procedure.LuaRetrieveAllPers, 0)
+func (p *Per) Retrieve() (int, []byte) {
+	ret, err := redisCli.GetRedisInstance().Do("EVAL", procedure.LuaRetrieveAllPers, 0)
 	if err != nil {
 		return http.StatusInternalServerError, nil
 	}
@@ -722,16 +870,22 @@ func (p *Per) Retrieve() {
 				list = append(list, string(vSlice))
 			}
 		}
-		return http.StatusOK, json.Marshal(struct {
+		data, _ := json.Marshal(struct {
 			Pers []string `json:"pers"`
 		}{Pers: list})
+
+		return http.StatusOK, data
 	} else {
 		return http.StatusInternalServerError, nil
 	}
 }
 
-func (p *Per) RetrieveEntities(e string) {
-	ret, err := redis.GetRedisInstance().Do("EVAL", procedure.LuaRetrievePs, 1, e)
+func (p *Per) RetrieveEntities(e string) (int, []byte) {
+	if e == "" {
+		return http.StatusBadRequest, nil
+	}
+
+	ret, err := redisCli.GetRedisInstance().Do("EVAL", procedure.LuaRetrievePs, 1, e)
 	if err != nil {
 		return http.StatusInternalServerError, nil
 	}
@@ -744,16 +898,22 @@ func (p *Per) RetrieveEntities(e string) {
 				list = append(list, string(vSlice))
 			}
 		}
-		return http.StatusOK, json.Marshal(struct {
+		data, _ := json.Marshal(struct {
 			Ps []string `json:"ps"`
 		}{Ps: list})
+
+		return http.StatusOK, data
 	} else {
 		return http.StatusInternalServerError, nil
 	}
 }
 
 func (p *Per) Create(e string) (int, []byte) {
-	ret, err := redis.GetRedisInstance().Do("EVAL", procedure.LuaCreatePer, 1, e)
+	if e == "" {
+		return http.StatusBadRequest, nil
+	}
+
+	ret, err := redisCli.GetRedisInstance().Do("EVAL", procedure.LuaCreatePer, 1, e)
 	if err != nil {
 		return http.StatusInternalServerError, nil
 	}
@@ -775,7 +935,11 @@ func (p *Per) Create(e string) (int, []byte) {
 }
 
 func (p *Per) Delete(e string) (int, []byte) {
-	ret, err := redis.GetRedisInstance().Do("EVAL", procedure.LuaDeletePer, 1, e)
+	if e == "" {
+		return http.StatusBadRequest, nil
+	}
+
+	ret, err := redisCli.GetRedisInstance().Do("EVAL", procedure.LuaDeletePer, 1, e)
 	if err != nil {
 		return http.StatusInternalServerError, nil
 	}
@@ -794,8 +958,12 @@ func (p *Per) Delete(e string) (int, []byte) {
 	return http.StatusInternalServerError, nil
 }
 
-func (p *Per) MoveEntities(e1 string, count int, e2 string) (int, []byte) {
-	ret, err := redis.GetRedisInstance().Do("EVAL", procedure.LuaMovePs, 1, e1, count, e2)
+func (p *Per) MoveEntities(e1 string, countStr string, e2 string) (int, []byte) {
+	count, err := strconv.Atoi(countStr)
+	if err != nil || count <= 0 || e1 == "" || e2 == "" {
+		return http.StatusBadRequest, nil
+	}
+	ret, err := redisCli.GetRedisInstance().Do("EVAL", procedure.LuaMovePs, 1, e1, countStr, e2)
 	if err != nil {
 		return http.StatusInternalServerError, nil
 	}
@@ -805,15 +973,20 @@ func (p *Per) MoveEntities(e1 string, count int, e2 string) (int, []byte) {
 		if retInt64 == EntityNotExists {
 			return http.StatusNoContent, nil
 		}
-		return http.StatusOK, json.Marshal(struct {
+		data, _ := json.Marshal(struct {
 			Count int64 `json:"count"`
 		}{Count: retInt64})
+
+		return http.StatusOK, data
 	}
 	return http.StatusInternalServerError, nil
 }
 
-func (p *Per) MoveFixedEntities(e1 string, multiE int, e2 string) (int, []byte) {
-	ret, err := redis.GetRedisInstance().Do("EVAL", procedure.LuaMoveFixedPs, 1, e1, multiE, e2)
+func (p *Per) MoveFixedEntities(e1 string, multiE string, e2 string) (int, []byte) {
+	if e1 == "" || e2 == "" || multiE == "" {
+		return http.StatusBadRequest, nil
+	}
+	ret, err := redisCli.GetRedisInstance().Do("EVAL", procedure.LuaMoveFixedPs, 1, e1, multiE, e2)
 	if err != nil {
 		return http.StatusInternalServerError, nil
 	}
@@ -823,15 +996,22 @@ func (p *Per) MoveFixedEntities(e1 string, multiE int, e2 string) (int, []byte) 
 		if retInt64 == EntityNotExists {
 			return http.StatusNoContent, nil
 		}
-		return http.StatusOK, json.Marshal(struct {
+		data, _ := json.Marshal(struct {
 			Count int64 `json:"count"`
 		}{Count: retInt64})
+
+		return http.StatusOK, data
 	}
 	return http.StatusInternalServerError, nil
 }
 
-func (p *Per) BookEntities(e string, count int) (int, []byte) {
-	ret, err := redis.GetRedisInstance().Do("EVAL", procedure.LuaBookPs, 1, e, count)
+func (p *Per) BookEntities(e string, countStr string) (int, []byte) {
+	count, err := strconv.Atoi(countStr)
+	if err != nil || count <= 0 || e == "" {
+		return http.StatusBadRequest, nil
+	}
+
+	ret, err := redisCli.GetRedisInstance().Do("EVAL", procedure.LuaBookPs, 1, e, countStr)
 	if err != nil {
 		return http.StatusInternalServerError, nil
 	}
@@ -846,16 +1026,22 @@ func (p *Per) BookEntities(e string, count int) (int, []byte) {
 		case SADDOperError:
 			return http.StatusInternalServerError, nil
 		default:
-			return http.StatusOK, json.Marshal(struct {
+			data, _ := json.Marshal(struct {
 				Count int64 `json:"count"`
 			}{Count: retInt64})
+
+			return http.StatusOK, data
 		}
 	}
 	return http.StatusInternalServerError, nil
 }
 
 func (p *Per) BookFixedEntities(e string, multiE string) (int, []byte) {
-	ret, err := redis.GetRedisInstance().Do("EVAL", procedure.LuaBookPs, 1, e, multiE)
+	if e == "" || multiE == "" {
+		return http.StatusBadRequest, nil
+	}
+
+	ret, err := redisCli.GetRedisInstance().Do("EVAL", procedure.LuaBookPs, 1, e, multiE)
 	if err != nil {
 		return http.StatusInternalServerError, nil
 	}
@@ -870,16 +1056,22 @@ func (p *Per) BookFixedEntities(e string, multiE string) (int, []byte) {
 		case SADDOperError:
 			return http.StatusInternalServerError, nil
 		default:
-			return http.StatusOK, json.Marshal(struct {
+			data, _ := json.Marshal(struct {
 				Count int64 `json:"count"`
 			}{Count: retInt64})
+
+			return http.StatusOK, data
 		}
 	}
 	return http.StatusInternalServerError, nil
 }
 
 func (p *Per) TakeEntities(e1 string, e2 string) (int, []byte) {
-	ret, err := redis.GetRedisInstance().Do("EVAL", procedure.LuaTakePs, 1, e1, e2)
+	if e1 == "" || e2 == "" {
+		return http.StatusBadRequest, nil
+	}
+
+	ret, err := redisCli.GetRedisInstance().Do("EVAL", procedure.LuaTakePs, 1, e1, e2)
 	if err != nil {
 		return http.StatusInternalServerError, nil
 	}
@@ -891,9 +1083,11 @@ func (p *Per) TakeEntities(e1 string, e2 string) (int, []byte) {
 		case SADDOperError:
 			return http.StatusInternalServerError, nil
 		default:
-			return http.StatusOK, json.Marshal(struct {
+			data, _ := json.Marshal(struct {
 				Count int64 `json:"count"`
 			}{Count: retInt64})
+
+			return http.StatusOK, data
 		}
 	}
 	return http.StatusInternalServerError, nil

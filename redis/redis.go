@@ -1,30 +1,32 @@
-package redis
+package redisCli
 
 import (
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/garyburd/redigo/redis"
 )
 
 var (
-	redis      *Redis
+	redisCli   *Redis
 	redisMutex sync.Mutex
 
-	redisAddr   string
-	maxIdle     int
-	maxActive   int
-	idleTimeout int64
+	RedisAddr   string
+	MaxIdle     int
+	MaxActive   int
+	IdleTimeout int64
 )
 
 func GetRedisInstance() *Redis {
-	if redis == nil {
+	if redisCli == nil {
 		redisMutex.Lock()
-		if redis == nil {
-			redis = NewRedis(redisAddr, maxIdle, maxActive, time.Duration*idleTimeout)
+		if redisCli == nil {
+			redisCli = NewRedis(RedisAddr, MaxIdle, MaxActive, time.Duration(IdleTimeout)*time.Second)
 		}
 		redisMutex.Unlock()
 	}
-	return redis
+	return redisCli
 }
 
 type Redis struct {
@@ -36,9 +38,9 @@ type Redis struct {
 }
 
 func NewRedis(addr string, maxIdle, maxActive int, idleTimeout time.Duration) *Redis {
-	redis := &Redis{addr: addr, maxIdle: maxIdle, maxActive: maxActive, idleTimeout: idleTimeout}
-	redis.initRedisPool()
-	return redis
+	redisCli := &Redis{addr: addr, maxIdle: maxIdle, maxActive: maxActive, idleTimeout: idleTimeout}
+	redisCli.initRedisPool()
+	return redisCli
 }
 func (r *Redis) initRedisPool() {
 	r.Pool = &redis.Pool{
