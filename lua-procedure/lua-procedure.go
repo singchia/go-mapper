@@ -386,7 +386,7 @@ var LuaMovePs = `
 			ret = redis.call("SADD", ARGV[2], v)
 			if ret == 1 then 
 				ret = redis.call("SET", v, ARGV[2])
-				if type(rst) == "table" and rst.ok == "OK" then 
+				if type(ret) == "table" and ret.ok == "OK" then 
 					index = index + 1
 				end
 			end
@@ -425,11 +425,14 @@ var LuaMoveMs = `
 
 	local index = 0
 	for k, v in pairs(rst) do 
-		ret = redis.call("SREM", KEYS[1], v)
+		local ret = redis.call("SREM", KEYS[1], v)
 		if ret == 1 then 
 			ret = redis.call("SADD", ARGV[2], v)
 			if ret == 1 then 
-				index = index + 1
+				ret = redis.call("SET", v, ARGV[2])
+				if type(ret) == "table" and ret.ok == "OK" then 
+					index = index + 1
+				end
 			end
 		end
 		if index == num then 
@@ -1148,7 +1151,7 @@ var LuaRetrieveAllMaps = `
 *	KEYS[1]: {per}
 **/
 var LuaRetrievePs = `
-	return redis.cal("SMEMBERS", KEYS[1])
+	return redis.call("SMEMBERS", KEYS[1])
 `
 
 /*
@@ -1156,7 +1159,7 @@ var LuaRetrievePs = `
 *	KEYS[1]: {map}
 **/
 var LuaRetrieveMs = `
-	return redis.cal("SMEMBERS", KEYS[1])
+	return redis.call("SMEMBERS", KEYS[1])
 `
 
 /*
@@ -1188,10 +1191,22 @@ var LuaRetrieveMap = `
 `
 
 /*
-*	retrieve {per} by {map}
+*	retrieve {per} by {p}
 *	KEYS[1]: {map}
 **/
 var LuaRetrievePer = `
+	local rst = redis.call("GET", KEYS[1])
+	if rst == false or type(rst) ~= "string" then 
+		return 40026
+	end
+	return rst
+`
+
+/*
+*	retrieve {per} by {map}
+*	KEYS[1]: {map}
+**/
+var LuaRetrievePerByMap = `
 	local rst = redis.call("GET", KEYS[1]..":per")
 	if rst == false or type(rst) ~= "string" then 
 		return 40026

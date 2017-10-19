@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/base64"
 	"flag"
+	"fmt"
 	"net/http"
 
 	"./redis"
@@ -12,7 +14,7 @@ import (
 const keyPrefix = "mapper:"
 
 var addr string
-var entityMap map[string]interface{}
+var entityMap map[string]CURD
 
 func main() {
 
@@ -23,11 +25,12 @@ func main() {
 	flag.Int64Var(&redisCli.IdleTimeout, "redisIdleTimeout", 30, "redis connection idle timeout")
 	flag.Parse()
 
-	entityMap = make(map[string]interface{}, 4)
+	entityMap = make(map[string]CURD, 4)
 	entityMap["ms"] = &M{}
 	entityMap["ps"] = &P{}
 	entityMap["maps"] = &Map{}
 	entityMap["pers"] = &Per{}
+	entityMap["topology"] = &Topology{}
 
 	r := mux.NewRouter()
 	POST(r)
@@ -60,6 +63,10 @@ func GET(r *mux.Router) {
 			return
 		}
 		retriever, _ := entityMap[entity].(Retriever)
+		if retriever == nil {
+			fmt.Printf("whtf, entity: %s", entity)
+			return
+		}
 		status, data := retriever.Retrieve()
 		w.WriteHeader(status)
 		w.Write(data)
@@ -89,7 +96,11 @@ func GET(r *mux.Router) {
 		var status int
 		var data []byte
 		if entity2 == "ps" {
-			status, data = retriever.RetrieveP(mux.Vars(req)["value1"])
+			var count = mux.Vars(req)["count"]
+			if count == "" {
+				count = "1"
+			}
+			status, data = retriever.RetrieveP(mux.Vars(req)["value1"], count)
 		} else {
 			status, data = retriever.RetrieveCoEntity(mux.Vars(req)["value1"])
 		}
@@ -100,28 +111,12 @@ func GET(r *mux.Router) {
 
 func PUT(r *mux.Router) {
 	r.HandleFunc("/{entity1}/{value1}/{entity2}/{value2}", func(w http.ResponseWriter, req *http.Request) {
-		entity1, ok := mux.Vars(req)["entity1"]
-		if !ok {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		entity2, ok := mux.Vars(req)["entity2"]
-		if !ok {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		value1, ok := mux.Vars(req)["value1"]
-		if !ok {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
+		entity1, _ := mux.Vars(req)["entity1"]
+		entity2, _ := mux.Vars(req)["entity2"]
+		value1, _ := mux.Vars(req)["value1"]
+		value2, _ := mux.Vars(req)["value2"]
 
-		value2, ok := mux.Vars(req)["value2"]
-		if !ok {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		if isEntity(entity1) || isEntity(entity2) {
+		if !isEntity(entity1) || !isEntity(entity2) {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -137,7 +132,14 @@ func PUT(r *mux.Router) {
 			status, data = updater.MoveEntities(value1, count, value2)
 		} else if elements != "" && canMoved(entity1, entity2) {
 			//move with elements
-			status, data = updater.MoveFixedEntities(value1, elements, value2)
+			es, err := base64.StdEncoding.DecodeString(elements)
+			if err != nil {
+				fmt.Print(err)
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			status, data = updater.MoveFixedEntities(value1, string(es), value2)
+
 		} else if canTook(entity1, entity2) {
 			//take the booked entities
 			status, data = updater.TakeEntities(value1, value2)
@@ -152,11 +154,8 @@ func PUT(r *mux.Router) {
 	}).Methods("PUT")
 
 	r.HandleFunc("/{entity1}/{value1}", func(w http.ResponseWriter, req *http.Request) {
-		entity1, ok := mux.Vars(req)["entity1"]
-		if !ok {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
+		entity1, _ := mux.Vars(req)["entity1"]
+
 		queries := req.URL.Query()
 		count := queries.Get("count")
 		elements := queries.Get("elements")
@@ -165,9 +164,14 @@ func PUT(r *mux.Router) {
 		var status int
 		var data []byte
 		if count != "" && canBooked(entity1) {
-			status, data = updater.BookEntities(mux.Vars(req)["value1"], mux.Vars(req)["count"])
+			status, data = updater.BookEntities(mux.Vars(req)["value1"], count)
+
 		} else if elements != "" && canBooked(entity1) {
-			status, data = updater.BookFixedEntities(mux.Vars(req)["value1"], mux.Vars(req)["count"])
+			es, err := base64.StdEncoding.DecodeString(elements)
+			if err != nil {
+				w.WriteHeader(http.StatusBadRequest)
+			}
+			status, data = updater.BookFixedEntities(mux.Vars(req)["value1"], string(es))
 		} else {
 			status, data = http.StatusNotFound, nil
 		}
@@ -179,25 +183,15 @@ func PUT(r *mux.Router) {
 
 func DELETE(r *mux.Router) {
 	r.HandleFunc("/{entity}/{value}", func(w http.ResponseWriter, req *http.Request) {
-		entity, ok := mux.Vars(req)["entity"]
-		if !ok {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		//TODO
+		entity, _ := mux.Vars(req)["entity"]
 		deleter, _ := entityMap[entity].(Deleter)
-		status, data := deleter.Delete(mux.Vars(req)["value1"])
+		status, data := deleter.Delete(mux.Vars(req)["value"])
 		w.WriteHeader(status)
 		w.Write(data)
 	}).Methods("DELETE")
 
 	r.HandleFunc("/{entity1}/{value1}/{entity2}", func(w http.ResponseWriter, req *http.Request) {
-		entity, ok := mux.Vars(req)["entity1"]
-		if !ok {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		//TODO
+		entity, _ := mux.Vars(req)["entity1"]
 		deleter, _ := entityMap[entity].(Deleter)
 		status, data := deleter.MultiDeAssign(mux.Vars(req)["value1"])
 		w.WriteHeader(status)
@@ -228,9 +222,9 @@ func canTook(field1, field2 string) bool {
 }
 
 func canAssigned(field1, field2 string) bool {
-	if field1 == "ps" && field2 == "pers" {
+	if field1 == "ms" && field2 == "maps" {
 		return true
-	} else if field1 == "pers" && field2 == "maps" {
+	} else if field1 == "maps" && field2 == "pers" {
 		return true
 	} else if field1 == "ps" && field2 == "pers" {
 		return true
@@ -247,13 +241,13 @@ func canMoved(field1, field2 string) bool {
 }
 
 func canRetrieved(field1, field2 string) bool {
-	if field1 == "ps" && field2 == "pers" {
+	if field1 == "ms" && field2 == "maps" {
 		return true
-	} else if field1 == "pers" && field2 == "maps" {
+	} else if field1 == "maps" && field2 == "pers" {
 		return true
 	} else if field1 == "ps" && field2 == "pers" {
 		return true
-	} else if field1 == "ps" && field2 == "ms" {
+	} else if field1 == "ms" && field2 == "ps" {
 		return true
 	} else {
 		return false
