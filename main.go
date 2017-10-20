@@ -11,8 +11,6 @@ import (
 	"github.com/gorilla/mux"
 )
 
-const keyPrefix = "mapper:"
-
 var addr string
 var entityMap map[string]CURD
 
