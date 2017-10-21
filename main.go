@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"./redis"
+	"github.com/singchia/go-mapper/redis"
 
 	"github.com/gorilla/mux"
 )

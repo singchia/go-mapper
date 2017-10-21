@@ -5,8 +5,9 @@ import (
 	"net/http"
 	"strconv"
 
-	"./lua-procedure"
-	"./redis"
+	procedure "github.com/singchia/go-mapper/lua-procedure"
+
+	"github.com/singchia/go-mapper/redis"
 )
 
 type Creator interface {
