@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -512,6 +513,7 @@ func (m *Map) Assign(e1, e2 string) (int, []byte) {
 func (m *Map) MultiAssign(e1, e2 string) (int, []byte) {
 	return m.Assign(e1, e2)
 }
+
 func (m *Map) DeAssign(e string) (int, []byte) {
 	if e == "" {
 		return http.StatusBadRequest, nil
@@ -531,6 +533,10 @@ func (m *Map) DeAssign(e string) (int, []byte) {
 		}
 	}
 	return http.StatusInternalServerError, nil
+}
+
+func (m *Map) MultiDeAssign(e string) (int, []byte) {
+	return m.DeAssign(e)
 }
 
 func (m *Map) MoveEntities(e1 string, countStr string, e2 string) (int, []byte) {
@@ -617,8 +623,9 @@ func (m *Map) BookFixedEntities(e string, multiE string) (int, []byte) {
 		return http.StatusBadRequest, nil
 	}
 
-	ret, err := redisCli.GetRedisInstance().Do("EVAL", procedure.LuaBookMs, 1, e, multiE)
+	ret, err := redisCli.GetRedisInstance().Do("EVAL", procedure.LuaBookFixedMs, 1, e, multiE)
 	if err != nil {
+		fmt.Print(err.Error())
 		return http.StatusInternalServerError, nil
 	}
 
@@ -757,6 +764,7 @@ func (p *P) Delete(e string) (int, []byte) {
 
 	ret, err := redisCli.GetRedisInstance().Do("EVAL", procedure.LuaDeleteP, 1, e)
 	if err != nil {
+		fmt.Printf("%v", err.Error())
 		return http.StatusInternalServerError, nil
 	}
 
@@ -768,6 +776,7 @@ func (p *P) Delete(e string) (int, []byte) {
 		case EntityNotExists:
 			return http.StatusNoContent, nil
 		default:
+			fmt.Printf("%v", retInt64)
 			return http.StatusInternalServerError, nil
 		}
 	}
@@ -1057,7 +1066,7 @@ func (p *Per) BookFixedEntities(e string, multiE string) (int, []byte) {
 		return http.StatusBadRequest, nil
 	}
 
-	ret, err := redisCli.GetRedisInstance().Do("EVAL", procedure.LuaBookPs, 1, e, multiE)
+	ret, err := redisCli.GetRedisInstance().Do("EVAL", procedure.LuaBookFixedPs, 1, e, multiE)
 	if err != nil {
 		return http.StatusInternalServerError, nil
 	}

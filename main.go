@@ -94,7 +94,8 @@ func GET(r *mux.Router) {
 		var status int
 		var data []byte
 		if entity2 == "ps" {
-			var count = mux.Vars(req)["count"]
+			queries := req.URL.Query()
+			count := queries.Get("count")
 			if count == "" {
 				count = "1"
 			}
