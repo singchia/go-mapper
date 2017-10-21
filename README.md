@@ -12,35 +12,35 @@
 
 **go-mapper** keeps 4 types of entities which respectively are **m**, **map**, **p** and **per**, and 2 types of relations which respectively are **points to** and **contains**. **map** is the group of **m** and **per** is the group of **p**, if **map** points to **per**, then all **m**s contained in **map** point to **p**s contained in **per**.   
 ## A use case
-Let's see a case in distributed system, assuming you got 4 types of requests like **A**, **B**, **C**, **D**, and 4 nodes **a**, **b**, **c**, **d** to handle those requests, for load balancing, you may want sigle node to handle one specific type of requests, then the relations may look like: 
+Let's see a case in distributed system, assuming you got 4 types of requests like **A**, **B**, **C**, **D**, and 4 nodes **a**, **b**, **c**, **d** to handle those requests, for load balancing, you may want single node to handle one specific type of requests, then the relations may look like: 
 
 ```
 A => a; B => b; C => c; D => d;
 ```
 	
-quite good when everything go well, but now node **a** is down, you have to reassign **A** to another node, then it goes to:   
+Quite good when everything goes well, but now node **a** is down, you have to reassign **A** to another node, then it goes to:   
 
 ```
 A => b; B => b; C => c; D => d; 
 ```  
-now node **b** takes 2 types of requests. troubles never come single, we find that type **C** requests income too fast, but type **D** requests are just on the contrary, we hope node **d** can handle both **C** and **D**:   
+Now node **b** takes 2 types of requests. Troubles never come single, we find that type **C** requests income too fast, but type **D** requests are just on the contrary, we hope node **d** can handle both **C** and **D**:   
 
 ```
 A => b; B => b; C => c,d; D => d;
 ```  
-what if node **d** went wrong too? we need to iterate all relation to remove the assignment, that's a bad idea at runtime. what about building relations that node points to type of request too?    
+What if node **d** went wrong too? we need to iterate all relation to remove the assignment, that's a bad idea at runtime. what about building relations that node points to type of request too?    
 
 ```
 A => b; B => b; C => c,d; D => d;
 b => A,B; c => C; d => C,D;
 ```  
-don't be so happy, now I want all types of requests to share all nodes, you know what, I need to change 8 assignments to achieve that:  
+It looks ok but don't be happy too early, now I want all types of requests to share all nodes, you know what, I need to change 8 assignments to get requirement done:  
  
 ```
 A => b,c,d; B => b,c,d; C => b,c,d; D => b,c,d; 
 b => A,B,C,D; c => A,B,C,D; d => A,B,C,D;
 ```  
-totally a mess! we need to change our mind, **details should depend upon abstractions**, we need to construct a another structure to loose coupling between types of requests and nodes. that's how **go-mapper** came up:    
+Totally a mess! we need to change our mind, **details should depend upon abstractions**, we need to construct a another structure to loose coupling between types of requests and nodes. that's how **go-mapper** came up:    
 
 ```
 {A, B, C, D} => {b, c, d}
@@ -50,13 +50,13 @@ if node **b** is down, just adjust to:
 ```
 {A, B, C, D} => {c, d}
 ```  
-**solved!**
+**Solved!**
 
 ## Why redis
-* main reason, it's stable and fast.
-* it's hard to keep consistency when status changed, especially when requests come really fast.
-* if not using a back-end component, it wound be triky to implement a distrubuted system with CAP consideration. the atomic status changing requires much more codes and it may be not efficient.
-* with redis **go-mapper** can scale out as wish, because all status were keeped in redis, **go-mapper** just proxy the status-changing requests to it.
+* Main reason, it's stable and fast.
+* It's hard to keep consistency when status changed, especially when requests come really fast.
+* If not using a back-end component, it wound be triky to implement a distrubuted system with CAP in consideration. the atomic status changing requires much more codes and it may be not efficient.
+* With redis, **go-mapper** can scale out as wish, because all status were keeped in redis, **go-mapper** just proxy the status-changing requests to it.
 
 ## Installation
 If you don't have the Go development environment installed, visit the [Getting Started](https://golang.org/doc/install) document and follow the instructions. Once you're ready, execute the following command:  
@@ -64,15 +64,15 @@ If you don't have the Go development environment installed, visit the [Getting S
 ```
 go get -u github.com/singchia/go-mapper
 ```  
-then    
+Then    
 
 ```
 go install github.com/singchia/go-mapper
 ```  
-you will get a runable binary file named **go-mapper** in **GOBIN**
+You will get a runable binary file named **go-mapper** in **GOBIN**
 
 ## How to use
-**go-mapper** supports rest api to maintain the mappings, those api manipulate 4 types of entities(**m**, **map**, **p**, **per**) in restful to supply **CURD**(**create**, **update**, **retrieve**, **delete**) operations.    
+**go-mapper** supports rest api to maintain the mappings, those api manipulate 4 types of entities(**m**, **map**, **p**, **per**) in restful to provide **CURD**(**create**, **update**, **retrieve**, **delete**) operations.    
 ### CREATE
 -----
 To create a unassigned m named _**m1**_(not point to any map yet).  [verify with topology](#retrieve)
@@ -290,4 +290,4 @@ To delete asignment of _**map1**_. [verify with topology](#retrieve)
 > curl -i -X DELETE http://localhost:1202/maps/map2/pers
 ```
 ## What is next
-Since **go-mapper** only supplies rest api, for the production environments of a distributed system, a node may be down before calling a **delete** rest api, and this scenario can be detected by a tcp connection or heartbeat packages, once connection interrupted, the data(maybe **p**) associated with the connection will be deleted, so a tcp implementation is within the plan.
+Since **go-mapper** only supplies rest api, for the production environments of a distributed system, a node may be down before calling a **delete** rest api. This scenario can be detected by a tcp connection or heartbeat packages, once connection interrupted, the data(maybe **p**) associated with the connection will be deleted, so a tcp implementation is within the plan.
