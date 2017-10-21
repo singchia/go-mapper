@@ -75,58 +75,58 @@ you will get a runable binary file named **go-mapper** in **GOBIN**
 **go-mapper** supports rest api to maintain the mappings, those api manipulate 4 types of entities(**m**, **map**, **p**, **per**) in restful to supply **CURD**(**create**, **update**, **retrieve**, **delete**) operations.    
 ### CREATE
 -----
-To create a unassigned m named _**m1**_(not point to any map yet).  [verify with topology](#RETRIEVE)
+To create a unassigned m named _**m1**_(not point to any map yet).  [verify with topology](#retrieve)
   
 ```
 > curl -i -X POST http://localhost:1202/ms/m1
 ```
 
-To create a empty map named _**map1**_(include no m). [verify with topology](#RETRIEVE)
+To create a empty map named _**map1**_(include no m). [verify with topology](#retrieve)
 
 ```
 > curl -i -X POST http://localhost:1202/maps/map1
 ```
-To create a unassigned p named _**p1**_(not point to any per yet). [verify with topology](#RETRIEVE)
+To create a unassigned p named _**p1**_(not point to any per yet). [verify with topology](#retrieve)
 
 ```
 > curl -i -X POST http://localhost:1202/ps/p1
 ```
-To create a empty per named _**per1**_(include no p). [verify with topology](#RETRIEVE)
+To create a empty per named _**per1**_(include no p). [verify with topology](#retrieve)
 
 ```
 > curl -i -X POST http://localhost:1202/pers/per1
 ```
 ### UPDATE
 -----
-To assign _**m1**_ to _**map1**_ and _**map1**_ will contain _**m1**_. [verify with topology](#RETRIEVE)
+To assign _**m1**_ to _**map1**_ and _**map1**_ will contain _**m1**_. [verify with topology](#retrieve)
 
 ```
 > curl -i -X PUT http://localhost:1202/ms/m1/maps/map1
 ```
 
-To assign _**p1**_ to _**per1**_ and _**per1**_ will include _**p1**_. [verify with topology](#RETRIEVE)
+To assign _**p1**_ to _**per1**_ and _**per1**_ will include _**p1**_. [verify with topology](#retrieve)
 
 ```
 > curl -i -X PUT http://localhost:1202/ps/p1/pers/per1
 ```
-To assign _**map1**_ to _**per1**_. [verify with topology](#RETRIEVE)
+To assign _**map1**_ to _**per1**_. [verify with topology](#retrieve)
 
 ```
 > curl -i -X PUT http://localhost:1202/maps/map1/pers/per1
 ```
-To move 2 elements from _**map1**_ to _**map2**_(assuming _**map1**_ and _**map2**_ were created), if 2 > count of elements that _**map1**_ contains, then move all. [verify with topology](#RETRIEVE)
+To move 2 elements from _**map1**_ to _**map2**_(assuming _**map1**_ and _**map2**_ were created), if 2 > count of elements that _**map1**_ contains, then move all. [verify with topology](#retrieve)
 
 ```
 > curl -i -X PUT http://localhost:1202/maps/map1/maps/map2?count=2
 {"count":1}
 ```
-To move 2 elements from _**per1**_ to _**per2**_(assuming _**per1**_ and _**per2**_ were created), if 2 > count of elements that _**per1**_ contains, then move all. [verify with topology](#RETRIEVE)
+To move 2 elements from _**per1**_ to _**per2**_(assuming _**per1**_ and _**per2**_ were created), if 2 > count of elements that _**per1**_ contains, then move all. [verify with topology](#retrieve)
 
 ```
 > curl -i -X PUT http://localhost:1202/pers/per1/pers/per2?count=2
 {"count":1}
 ```
-To move some specific elements in **http Query** field which should be encoded by **base64** from _**map2**_ to _**map1**_. [verify with topology](#RETRIEVE)
+To move some specific elements in **http Query** field which should be encoded by **base64** from _**map2**_ to _**map1**_. [verify with topology](#retrieve)
 
 ```
 > base64 <<< "m1"
@@ -135,7 +135,7 @@ bTEK
 {"count":1}
 ```
 
-To move some specific elements in **http Query** field which should be encoded by **base64** from _**per2**_ to _**per1**_. [verify with topology](#RETRIEVE)
+To move some specific elements in **http Query** field which should be encoded by **base64** from _**per2**_ to _**per1**_. [verify with topology](#retrieve)
 
 ```
 > base64 <<< "p1"
@@ -143,13 +143,13 @@ cDEK
 > curl -i -X PUT http://localhost:1202/pers/per2/pers/per1?elements=cDEK
 {"count":1}
 ```
-To book 2 elements from _**map1**_, once booked, can't book again before the elements be took. if 2 > count of elements that _**map1**_ contains, then book all. [verify with topology](#RETRIEVE)
+To book 2 elements from _**map1**_, once booked, can't book again before the elements be took. if 2 > count of elements that _**map1**_ contains, then book all. [verify with topology](#retrieve)
 
 ```
 > curl -i -X PUT http://localhost:1202/maps/map1?count=2
 {"count":1}
 ```
-To book specific elements from _**map1**_, once booked, can't book again before the elements be took. [verify with topology](#RETRIEVE)
+To book specific elements from _**map1**_, once booked, can't book again before the elements be took. [verify with topology](#retrieve)
 
 ```
 > base64 <<< "m1"
@@ -157,19 +157,19 @@ bTEK
 > curl -i -X PUT http://localhost:1202/maps/map1?elements=bTEK
 {"count":1}
 ```
-To take the elements to _**map2**_ booked from _**map1**_. [verify with topology](#RETRIEVE)
+To take the elements to _**map2**_ booked from _**map1**_. [verify with topology](#retrieve)
 
 ```
 > curl -i -X PUT http://localhost:1202/maps/map1/maps/map2
 {"count":1}
 ```
-To book 2 elements from _**per1**_, once booked, can't book again before the elements be took. if 2 > count of elements that _**per1**_ contains, then book all. [verify with topology](#RETRIEVE)
+To book 2 elements from _**per1**_, once booked, can't book again before the elements be took. if 2 > count of elements that _**per1**_ contains, then book all. [verify with topology](#retrieve)
 
 ```
 > curl -i -X PUT http://localhost:1202/pers/per1?count=2
 {"count":1}
 ```
-To book specific elements from _**per1**_, once booked, can't book again before the elements be took. [verify with topology](#RETRIEVE)
+To book specific elements from _**per1**_, once booked, can't book again before the elements be took. [verify with topology](#retrieve)
 
 ```
 > base64 <<< "p1"
@@ -177,7 +177,7 @@ cDEK
 > curl -i -X PUT http://localhost:1202/pers/per1?elements=cDEK
 {"count":1}
 ```
-To take the elements to _**per2**_ booked from _**per1**_. [verify with topology](#RETRIEVE)
+To take the elements to _**per2**_ booked from _**per1**_. [verify with topology](#retrieve)
 
 ```
 > curl -i -X PUT http://localhost:1202/pers/per1/pers/per2
@@ -187,7 +187,7 @@ To take the elements to _**per2**_ booked from _**per1**_. [verify with topology
 
 ### RETRIEVE
 ------
-**To retrieve go-mapper's topology, c- means correspoding**. [verify with topology](#RETRIEVE)
+**To retrieve go-mapper's topology, c- means correspoding**. [verify with topology](#retrieve)
 
 ```
 > curl -i -X GET http://localhost:1202/topology
@@ -202,49 +202,49 @@ To take the elements to _**per2**_ booked from _**per1**_. [verify with topology
     {"map":"map2","c-ms":{}}]
 }
 ```
-To retrieve all **m**s. [verify with topology](#RETRIEVE)
+To retrieve all **m**s. [verify with topology](#retrieve)
 
 ```
 > curl -i -X GET http://localhost:1202/ms
 {"ms":["m1"]}
 ```
-To retrieve all **p**s. [verify with topology](#RETRIEVE)
+To retrieve all **p**s. [verify with topology](#retrieve)
 
 ```
 > curl -i -X GET http://localhost:1202/ps
 {"ps":["p1"]}
 ```
-To retrieve **m**s contained by _**map1**_. [verify with topology](#RETRIEVE)
+To retrieve **m**s contained by _**map1**_. [verify with topology](#retrieve)
 
 ```
 > curl -i -X GET http://localhost:1202/maps/map1
 {"ms":["m1"]}
 ```
-To retrieve **p**s contained by _**per1**_. [verify with topology](#RETRIEVE)
+To retrieve **p**s contained by _**per1**_. [verify with topology](#retrieve)
 
 ```
 > curl -i -X GET http://localhost:1202/pers/per1
 {"ps":["p1"]}
 ```
-To retrieve **map** that _**m1**_ points to. [verify with topology](#RETRIEVE)
+To retrieve **map** that _**m1**_ points to. [verify with topology](#retrieve)
 
 ```
 > curl -i -X GET http://localhost:1202/ms/m1/maps
 {"map":"map1"}
 ```
-To retrieve **per** that _**map1**_ points to. [verify with topology](#RETRIEVE)
+To retrieve **per** that _**map1**_ points to. [verify with topology](#retrieve)
 
 ```
 > curl -i -X GET http://localhost:1202/maps/map1/pers
 {"per":"per1"}
 ```
-To retrieve **per** that _**p1**_ points to. [verify with topology](#RETRIEVE)
+To retrieve **per** that _**p1**_ points to. [verify with topology](#retrieve)
 
 ```
 > curl -i -X GET http://localhost:1202/ps/p1/pers
 {"per":"per1"}
 ```
-**To retrieve 1 or n random p that _m1_ can find(by m=>map=>per and p=>per)**. [verify with topology](#RETRIEVE)
+**To retrieve 1 or n random p that _m1_ can find(by m=>map=>per and p=>per)**. [verify with topology](#retrieve)
 
 ```
 > curl -i -X GET http://localhost:1202/ms/m1/ps
@@ -254,37 +254,37 @@ To retrieve **per** that _**p1**_ points to. [verify with topology](#RETRIEVE)
 ```
 ### DELETE
 -----
-To delete _**m1**_. [verify with topology](#RETRIEVE)
+To delete _**m1**_. [verify with topology](#retrieve)
 
 ```
 > curl -i -X DELETE http://localhost:1202/ms/m1
 ```
-To delete _**p1**_. [verify with topology](#RETRIEVE)
+To delete _**p1**_. [verify with topology](#retrieve)
 
 ```
 > curl -i -X DELETE http://localhost:1202/ps/p1
 ```
-To delete _**map1**_. [verify with topology](#RETRIEVE)
+To delete _**map1**_. [verify with topology](#retrieve)
 
 ```
 > curl -i -X DELETE http://localhost:1202/maps/map1
 ```
-To delete _**per1**_. [verify with topology](#RETRIEVE)
+To delete _**per1**_. [verify with topology](#retrieve)
 
 ```
 > curl -i -X DELETE http://localhost:1202/pers/per1
 ```
-To delete assignment of _**m1**_. [verify with topology](#RETRIEVE)
+To delete assignment of _**m1**_. [verify with topology](#retrieve)
 
 ```
 > curl -i -X DELETE http://localhost:1202/ms/m1/maps
 ```
-To delete assignment of _**p1**_. [verify with topology](#RETRIEVE)
+To delete assignment of _**p1**_. [verify with topology](#retrieve)
 
 ```
 > curl -i -X DELETE http://localhost:1202/ps/p1/pers
 ```
-To delete asignment of _**map1**_. [verify with topology](#RETRIEVE)
+To delete asignment of _**map1**_. [verify with topology](#retrieve)
 
 ```
 > curl -i -X DELETE http://localhost:1202/maps/map2/pers
