@@ -28,7 +28,7 @@ Now node **b** takes 2 types of requests. Troubles never come single, we find th
 ```
 A => b; B => b; C => c,d; D => d;
 ```  
-What if node **d** went wrong too? we need to iterate all relation to remove the assignment, that's a bad idea at runtime. what about building relations that node points to type of request too?    
+What if node **d** went wrong too? we need to iterate all relation to remove the assignment, that's a bad idea at runtime. what about building relations that node points to type of requests too?    
 
 ```
 A => b; B => b; C => c,d; D => d;
@@ -62,13 +62,8 @@ if node **b** is down, just adjust to:
 If you don't have the Go development environment installed, visit the [Getting Started](https://golang.org/doc/install) document and follow the instructions. Once you're ready, execute the following command:  
 
 ```
-go get -u github.com/singchia/go-mapper
-```  
-Then    
-
-```
-go install github.com/singchia/go-mapper
-```  
+go get github.com/singchia/go-mapper
+```   
 You will get a runable binary file named **go-mapper** in **GOBIN**
 
 ## How to use
