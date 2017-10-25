@@ -1,5 +1,5 @@
 # go-mapper
-**go-mapper** maintains mappings between two kinds of groups in redis, an implementation of keeping relational model of data in a NoSQL. **go-mapper** simply use two data types of redis value which are Strings and Sets to hold the model:  
+**go-mapper** maintains mappings between two kinds of groups in redis, it's an implementation of keeping relational model of data in a NoSQL. **go-mapper** simply use two data types of redis value which are Strings and Sets to hold the model:  
 
 
 | entity| relation | data type of redis value| entity|
@@ -10,7 +10,7 @@
 |per|contains|Sets|p|
 |p|points to|Strings|per|  
 
-**go-mapper** keeps 4 types of entities which respectively are **m**, **map**, **p** and **per**, and 2 types of relations which respectively are **points to** and **contains**. **map** is the group of **m** and **per** is the group of **p**, if **map** points to **per**, then all **m**s contained in **map** point to **p**s contained in **per**.   
+**go-mapper** keeps 4 types of entities which respectively are **m**, **map**, **p** and **per**, and 2 types of relations which respectively are **points to** and **contains**. **map** is the group of **m** and **per** is the group of **p**, if **map** points to **per**, all **m**s contained in **map** will point to **p**s contained in **per**, then you can use **m** to get a **p**.   
 ## A use case
 Let's see a case in distributed system, assuming you got 4 types of requests like **A**, **B**, **C**, **D**, and 4 nodes **a**, **b**, **c**, **d** to handle those requests, for load balancing, you may want single node to handle one specific type of requests, then the relations may look like: 
 
