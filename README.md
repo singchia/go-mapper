@@ -284,5 +284,5 @@ To delete asignment of _**map1**_. [verify with topology](#retrieve)
 ```
 > curl -i -X DELETE http://localhost:1202/maps/map2/pers
 ```
-## What is next
+## What's next
 Since **go-mapper** only supplies rest api, for the production environments of a distributed system, a node may be down before calling a **delete** rest api. This scenario can be detected by a tcp connection or heartbeat packages, once connection interrupted, the data(maybe **p**) associated with the connection will be deleted, so a tcp implementation is within the plan.
